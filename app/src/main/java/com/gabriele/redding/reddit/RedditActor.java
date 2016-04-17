@@ -4,6 +4,7 @@ import android.util.Log;
 
 import com.gabriele.actor.interfaces.OnReceiveFunction;
 import com.gabriele.actor.internals.AbstractActor;
+import com.gabriele.actor.internals.ActorMessage;
 import com.gabriele.redding.LoginActivity;
 import com.gabriele.redding.ReddingApp;
 import com.gabriele.redding.reddit.cmds.GetHomeCmd;
@@ -36,7 +37,7 @@ import javax.inject.Inject;
 public class RedditActor extends AbstractActor {
 
     public static final String LOG_TAG = "RedditActor";
-    ExecutorService mService = Executors.newSingleThreadExecutor();
+    ExecutorService mService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     @Inject
     RedditClient mReddit;
@@ -52,14 +53,14 @@ public class RedditActor extends AbstractActor {
     @Override
     public void onReceive(Object o) throws Exception {
         if (o instanceof GetHomeCmd) {
-            onGetHomeCmd(((GetHomeCmd) o).streamed);
+            runCmd(onGetHomeCmd((GetHomeCmd) o));
 
         } else if (o instanceof GetUserCmd) {
-            onGetUserCmd();
+            runCmd(onGetUserCmd());
 
         } else if (o instanceof RefreshTokenCmd) {
             become(noauth);
-            onRefreshTokenCmd();
+            runCmd(onRefreshTokenCmd());
 
         }
     }
@@ -68,7 +69,7 @@ public class RedditActor extends AbstractActor {
         @Override
         public void onReceive(Object o) {
             if (o instanceof RefreshTokenCmd) {
-                onRefreshTokenCmd();
+                runCmd(onRefreshTokenCmd());
 
             } else if (o instanceof UserChallengeEvent) {
                 onUserChallenge((UserChallengeEvent) o);
@@ -83,71 +84,53 @@ public class RedditActor extends AbstractActor {
         }
     };
 
-    private void onGetHomeCmd(final boolean streamed) {
-        mService.execute(new Runnable() {
+    private Runnable onGetHomeCmd(final GetHomeCmd cmd) {
+        return new Runnable() {
             @Override
             public void run() {
-                try {
-                    List<Submission> subs = new ArrayList<>();
-                    for (Submission sub : new SubredditPaginator(mReddit).next()) {
-                        if (streamed) {
-                            getSender().tell(sub, getSelf());
+                List<Submission> subs = new ArrayList<>();
+                for (Submission sub : new SubredditPaginator(mReddit).next()) {
+                    if (cmd.streamed) {
+                        getSender().tell(sub, getSelf());
+                        try {
                             Thread.sleep(80);
-
-                        } else
-                            subs.add(sub);
-                    }
-                    getSender().tell(new HomeEvent(subs), getSelf());
-
-                } catch (NetworkException e) {
-                    if (e.getMessage().contains("403")) {
-                        getSelf().tell(new RefreshTokenCmd(), getSelf());
-                        getSelf().tell(new GetHomeCmd(), getSender());
-                    }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    } else
+                        subs.add(sub);
                 }
+                getSender().tell(new HomeEvent(subs), getSelf());
             }
-        });
+        };
     }
 
-    private void onGetUserCmd() {
-        mService.execute(new Runnable() {
+
+    private Runnable onGetUserCmd() {
+        return new Runnable() {
             @Override
             public void run() {
-                try {
-                    LoggedInAccount account = AuthenticationManager.get().getRedditClient().me();
-                    getSender().tell(account, getSelf());
-                } catch (NetworkException e) {
-                    if (e.getMessage().contains("403")) {
-                        getSelf().tell(new RefreshTokenCmd(), getSelf());
-                        getSelf().tell(new GetUserCmd(), getSender());
-                    }
-                }
-
+                LoggedInAccount account = AuthenticationManager.get().getRedditClient().me();
+                getSender().tell(account, getSelf());
             }
-        });
+        };
     }
 
-    private void onRefreshTokenCmd() {
-        mService.execute(new Runnable() {
+    private Runnable onRefreshTokenCmd() {
+        return new Runnable() {
             @Override
             public void run() {
+                Log.d(LOG_TAG, "Refreshing token");
                 try {
-                    Log.d(LOG_TAG, "Refreshing token");
                     AuthenticationManager.get().refreshAccessToken(LoginActivity.CREDENTIALS);
                     Log.d(LOG_TAG, "Refreshed token");
                     getSelf().tell(new RefreshedTokenEvent(), getSelf());
 
-                } catch (NoSuchTokenException e) {
-                    e.printStackTrace();
-                } catch (IllegalStateException e) {
-                    e.printStackTrace();
-                } catch (OAuthException e) {
+                } catch (NoSuchTokenException | OAuthException e) {
                     e.printStackTrace();
                 }
             }
-        });
+        };
     }
 
     private void onUserChallenge(final UserChallengeEvent evt) {
@@ -171,4 +154,22 @@ public class RedditActor extends AbstractActor {
             }
         });
     }
+
+    private void runCmd(final Runnable fun) {
+        final ActorMessage message = getActorContext().getCurrentMessage();
+        mService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    fun.run();
+                } catch (NetworkException e) {
+                    if (e.getMessage().contains("403")) {
+                        getSelf().tell(new RefreshTokenCmd(), getSelf());
+                        getSelf().tell(message.getObject(), message.getSender());
+                    }
+                }
+            }
+        });
+    }
+
 }

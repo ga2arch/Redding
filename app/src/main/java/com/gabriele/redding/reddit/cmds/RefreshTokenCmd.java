@@ -1,4 +1,4 @@
 package com.gabriele.redding.reddit.cmds;
 
-public class RefreshTokenCmd {
+public class RefreshTokenCmd implements Cmd {
 }
