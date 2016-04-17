@@ -29,7 +29,7 @@ import com.gabriele.redding.reddit.cmds.GetUserCmd;
 import com.gabriele.redding.reddit.cmds.GetUserSubredditsCmd;
 import com.gabriele.redding.reddit.cmds.RefreshTokenCmd;
 import com.gabriele.redding.reddit.events.AuthOkEvent;
-import com.gabriele.redding.reddit.events.HomeEvent;
+import com.gabriele.redding.reddit.events.SubredditEvent;
 import com.gabriele.redding.reddit.events.UserSubredditsEvent;
 
 import net.dean.jraw.auth.AuthenticationManager;
@@ -79,12 +79,12 @@ public class MainActivity extends AppCompatActivity
         mSpinner = (ProgressBar) findViewById(R.id.spinner);
         mRecyclerView = (RecyclerView) findViewById(R.id.submissions_list);
         assert mRecyclerView != null;
-        mSpinner.setVisibility(View.VISIBLE);
-        mRecyclerView.setVisibility(View.GONE);
+        showSpinner();
 
         mLayoutManager = new LinearLayoutManager(this);
         mRecyclerView.setLayoutManager(mLayoutManager);
-        mAdapter = new SubmissionsAdapter(mSubs);
+
+        mAdapter = new SubmissionsAdapter(this, mSubs);
         mRecyclerView.setAdapter(mAdapter);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
@@ -103,13 +103,14 @@ public class MainActivity extends AppCompatActivity
         mNavigationView= (NavigationView) findViewById(R.id.nav_view);
         assert mNavigationView != null;
         mNavigationView.setNavigationItemSelectedListener(this);
+        mNavigationView.getMenu().clear();
 
         if (!hasAuth())
             startActivity(new Intent(this, LoginActivity.class));
 
         getHome();
         getUserSubreddits();
-        redditActor.tell(new GetUserCmd(), activityRef);
+        getUser();
     }
 
     @Override
@@ -168,25 +169,18 @@ public class MainActivity extends AppCompatActivity
         AuthenticationState state = AuthenticationManager.get().checkAuthState();
         Log.d(LOG_TAG, "AuthenticationState for onResume(): " + state);
 
-        switch (state) {
-            case READY:
-                break;
-            case NONE:
-                break;
-            case NEED_REFRESH:
-                redditActor.tell(new RefreshTokenCmd(), activityRef);
-                break;
-        }
+        if (state == AuthenticationState.NEED_REFRESH)
+            redditActor.tell(new RefreshTokenCmd(), activityRef);
     }
 
     @Override
     public void onReceive(Object o) throws Exception {
-        if (o instanceof HomeEvent) {
+        if (o instanceof SubredditEvent) {
             mSpinner.setVisibility(View.GONE);
             mRecyclerView.setVisibility(View.VISIBLE);
 
-            List<Submission> home = ((HomeEvent) o).getHome();
-            mSubs.addAll(home);
+            List<Submission> subreddit = ((SubredditEvent) o).getSubreddit();
+            mSubs.addAll(subreddit);
             mAdapter.notifyDataSetChanged();
 
         } else if (o instanceof Submission) {
@@ -228,8 +222,7 @@ public class MainActivity extends AppCompatActivity
 
     private void getHome() {
         setTitle("Redding");
-        mSpinner.setVisibility(View.VISIBLE);
-        mRecyclerView.setVisibility(View.GONE);
+        showSpinner();
         firstSubmission = true;
         mSubs.clear();
         redditActor.tell(new GetSubredditCmd(), activityRef);
@@ -239,6 +232,10 @@ public class MainActivity extends AppCompatActivity
         redditActor.tell(new GetUserSubredditsCmd(), activityRef);
     }
 
+    private void getUser() {
+        redditActor.tell(new GetUserCmd(), activityRef);
+    }
+
     private void getSubreddit(Subreddit subreddit) {
         setTitle(subreddit.getTitle());
         mSpinner.setVisibility(View.VISIBLE);
@@ -246,6 +243,11 @@ public class MainActivity extends AppCompatActivity
         firstSubmission = true;
         mSubs.clear();
         redditActor.tell(new GetSubredditCmd(subreddit.getDisplayName()), activityRef);
+    }
+
+    private void showSpinner() {
+        mSpinner.setVisibility(View.VISIBLE);
+        mRecyclerView.setVisibility(View.GONE);
     }
 
     private boolean hasAuth() {

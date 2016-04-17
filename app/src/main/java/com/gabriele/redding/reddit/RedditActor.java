@@ -13,7 +13,7 @@ import com.gabriele.redding.reddit.cmds.GetUserSubredditsCmd;
 import com.gabriele.redding.reddit.cmds.RefreshTokenCmd;
 import com.gabriele.redding.reddit.events.AuthFailEvent;
 import com.gabriele.redding.reddit.events.AuthOkEvent;
-import com.gabriele.redding.reddit.events.HomeEvent;
+import com.gabriele.redding.reddit.events.SubredditEvent;
 import com.gabriele.redding.reddit.events.RefreshedTokenEvent;
 import com.gabriele.redding.reddit.events.UserChallengeEvent;
 import com.gabriele.redding.reddit.events.UserSubredditsEvent;
@@ -114,7 +114,7 @@ public class RedditActor extends AbstractActor {
                     } else
                         subs.add(sub);
                 }
-                getSender().tell(new HomeEvent(subs), getSelf());
+                getSender().tell(new SubredditEvent(subs), getSelf());
             }
         };
     }

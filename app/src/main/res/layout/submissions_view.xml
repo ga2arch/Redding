@@ -1,36 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="7sp">
+                android:paddingTop="7sp">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:textAlignment="viewEnd"
-            android:layout_gravity="end"
-            android:id="@+id/time"
-            android:visibility="gone"/>
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingTop="5sp"
+        android:paddingBottom="5sp">
 
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:paddingBottom="2sp">
-            <!--   android:textColor="#0C0C0C" -->
+
+            <TextView
+                android:id="@+id/author"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#8F8F8F">
+            </TextView>
+
+            <TextView
+                android:id="@+id/time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_alignParentRight="true"
+                android:layout_alignRight="@+id/author"
+                android:layout_gravity="end"
+                android:textColor="#8F8F8F">
+            </TextView>
+
+        </RelativeLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="16sp"
+                android:textColor="#0C0C0C"
+                android:textSize="14sp"
                 android:textStyle="bold">
             </TextView>
 
-        </RelativeLayout>
+        </LinearLayout>
 
         <RelativeLayout
             android:layout_width="match_parent"
@@ -62,7 +82,7 @@
             </TextView>
 
             <TextView
-                android:id="@+id/author"
+                android:id="@+id/domain"
                 android:layout_width="120sp"
                 android:layout_height="wrap_content"
                 android:layout_alignParentRight="true"

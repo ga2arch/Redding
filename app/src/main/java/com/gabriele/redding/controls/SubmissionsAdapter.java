@@ -1,5 +1,8 @@
 package com.gabriele.redding.controls;
 
+import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,9 +13,15 @@ import com.gabriele.redding.R;
 
 import net.dean.jraw.models.Submission;
 
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.joda.time.Period;
+
 import java.util.List;
+import java.util.Locale;
 
 public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.ViewHolder> {
+    private Context mContext;
     private List<Submission> mDataset;
 
     // Provide a reference to the views for each data item
@@ -35,13 +44,13 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
             mCommentsView = (TextView) mView.findViewById(R.id.comments);
             mPointsView = (TextView) mView.findViewById(R.id.points);
             mAuthorView = (TextView) mView.findViewById(R.id.author);
-
         }
     }
 
     // Provide a suitable constructor (depends on the kind of dataset)
-    public SubmissionsAdapter(List<Submission> myDataset) {
+    public SubmissionsAdapter(Context context, List<Submission> myDataset) {
         mDataset = myDataset;
+        mContext = context;
     }
 
     // Create new views (invoked by the layout manager)
@@ -58,16 +67,30 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
 
     // Replace the contents of a view (invoked by the layout manager)
     @Override
-    public void onBindViewHolder(ViewHolder holder, int position) {
+    public void onBindViewHolder(final ViewHolder holder, int position) {
         // - get element from your dataset at this position
         // - replace the contents of the view with that element
-        Submission submission = mDataset.get(position);
-
+        final Submission submission = mDataset.get(position);
         holder.mTitleView.setText(submission.getTitle());
         holder.mCommentsView.setText(String.valueOf(submission.getCommentCount()) + " comments");
         holder.mPointsView.setText(String.valueOf(submission.getScore()) + " upvotes");
-//        holder.mTimeView.setText(submission.getCreated().toString());
+
+        DateTime startTime = new DateTime(submission.getCreatedUtc());
+        Period p = new Period(startTime, DateTime.now(DateTimeZone.UTC));
+
+        long hours = p.getHours();
+        long minutes = p.getMinutes();
+
+        holder.mTimeView.setText(String.format(Locale.getDefault(), "%d hours %d minutes ago", hours, minutes));
         holder.mAuthorView.setText(submission.getAuthor());
+
+        holder.mView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(submission.getUrl()));
+                mContext.startActivity(browserIntent);
+            }
+        });
     }
 
     // Return the size of your dataset (invoked by the layout manager)

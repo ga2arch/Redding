@@ -5,14 +5,14 @@ import net.dean.jraw.models.Submission;
 import java.util.Collections;
 import java.util.List;
 
-public class HomeEvent implements Event {
+public class SubredditEvent implements Event {
     List<Submission> home;
 
-    public HomeEvent(List<Submission> home) {
+    public SubredditEvent(List<Submission> home) {
         this.home = home;
     }
 
-    public List<Submission> getHome() {
+    public List<Submission> getSubreddit() {
         return Collections.unmodifiableList(home);
     }
 }
