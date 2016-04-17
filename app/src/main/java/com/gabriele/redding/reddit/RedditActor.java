@@ -22,6 +22,7 @@ import net.dean.jraw.auth.NoSuchTokenException;
 import net.dean.jraw.http.NetworkException;
 import net.dean.jraw.http.oauth.OAuthData;
 import net.dean.jraw.http.oauth.OAuthException;
+import net.dean.jraw.models.LoggedInAccount;
 import net.dean.jraw.models.Submission;
 import net.dean.jraw.paginators.SubredditPaginator;
 
@@ -35,7 +36,7 @@ import javax.inject.Inject;
 public class RedditActor extends AbstractActor {
 
     public static final String LOG_TAG = "RedditActor";
-    ExecutorService mService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    ExecutorService mService = Executors.newSingleThreadExecutor();
 
     @Inject
     RedditClient mReddit;
@@ -43,7 +44,8 @@ public class RedditActor extends AbstractActor {
     @Override
     public void preStart() {
         ((ReddingApp) getContext()).getRedditComponent().inject(this);
-        if (AuthenticationManager.get().checkAuthState() != AuthenticationState.NONE)
+        AuthenticationState state = AuthenticationManager.get().checkAuthState();
+        if (state != AuthenticationState.READY)
             become(noauth);
     }
 
@@ -58,6 +60,7 @@ public class RedditActor extends AbstractActor {
         } else if (o instanceof RefreshTokenCmd) {
             become(noauth);
             onRefreshTokenCmd();
+
         }
     }
 
@@ -112,7 +115,16 @@ public class RedditActor extends AbstractActor {
         mService.execute(new Runnable() {
             @Override
             public void run() {
-                getSender().tell(AuthenticationManager.get().getRedditClient().me(), getSelf());
+                try {
+                    LoggedInAccount account = AuthenticationManager.get().getRedditClient().me();
+                    getSender().tell(account, getSelf());
+                } catch (NetworkException e) {
+                    if (e.getMessage().contains("403")) {
+                        getSelf().tell(new RefreshTokenCmd(), getSelf());
+                        getSelf().tell(new GetUserCmd(), getSender());
+                    }
+                }
+
             }
         });
     }

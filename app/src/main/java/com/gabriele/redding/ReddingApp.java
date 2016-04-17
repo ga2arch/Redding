@@ -24,6 +24,7 @@ public class ReddingApp extends Application {
 
         mRedditComponent.getRedditClient();
         mRedditComponent.getAuthManager();
+        mRedditComponent.getRedditActor();
     }
 
     public RedditComponent getRedditComponent() {

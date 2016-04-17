@@ -37,6 +37,6 @@ public class AndroidTokenStore implements TokenStore {
     }
 
     private SharedPreferences getSharedPreferences() {
-        return context.getSharedPreferences(getClass().getSimpleName(), Context.MODE_PRIVATE);
+        return context.getSharedPreferences("TOKENS", Context.MODE_PRIVATE);
     }
 }
