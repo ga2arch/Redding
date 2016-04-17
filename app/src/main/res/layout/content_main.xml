@@ -11,6 +11,13 @@
     tools:context="com.gabriele.redding.MainActivity"
     tools:showIn="@layout/app_bar_main">
 
+    <ProgressBar
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:indeterminate="true"
+        android:layout_centerInParent="true"
+        android:id="@+id/spinner"/>
+
     <android.support.v7.widget.RecyclerView
         android:id="@+id/submissions_list"
         android:layout_width="match_parent"

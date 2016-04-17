@@ -1,4 +1,4 @@
 package com.gabriele.redding.reddit.events;
 
-public class AuthFailEvent implements Event {
+public interface Event {
 }

@@ -13,6 +13,8 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.gabriele.actor.android.ActivityActor;
@@ -22,16 +24,19 @@ import com.gabriele.actor.internals.ActorRef;
 import com.gabriele.actor.internals.ActorSystem;
 import com.gabriele.actor.internals.Props;
 import com.gabriele.redding.controls.SubmissionsAdapter;
-import com.gabriele.redding.reddit.cmds.GetHomeCmd;
+import com.gabriele.redding.reddit.cmds.GetSubredditCmd;
 import com.gabriele.redding.reddit.cmds.GetUserCmd;
+import com.gabriele.redding.reddit.cmds.GetUserSubredditsCmd;
 import com.gabriele.redding.reddit.cmds.RefreshTokenCmd;
 import com.gabriele.redding.reddit.events.AuthOkEvent;
 import com.gabriele.redding.reddit.events.HomeEvent;
+import com.gabriele.redding.reddit.events.UserSubredditsEvent;
 
 import net.dean.jraw.auth.AuthenticationManager;
 import net.dean.jraw.auth.AuthenticationState;
 import net.dean.jraw.models.LoggedInAccount;
 import net.dean.jraw.models.Submission;
+import net.dean.jraw.models.Subreddit;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,11 +55,15 @@ public class MainActivity extends AppCompatActivity
     ActorSystem system;
 
     private ActorRef activityRef;
+    private NavigationView mNavigationView;
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
-    private DrawerLayout drawer;
-    private List<Submission> homeSubs = new ArrayList<>();
+    private DrawerLayout mDrawer;
+    private ProgressBar mSpinner;
+    private List<Submission> mSubs = new ArrayList<>();
+    private List<Subreddit> mSubreddits = new ArrayList<>();
+    private boolean firstSubmission = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,33 +76,39 @@ public class MainActivity extends AppCompatActivity
 
         system.getEventBus().subscribe(AuthOkEvent.class, activityRef);
 
+        mSpinner = (ProgressBar) findViewById(R.id.spinner);
         mRecyclerView = (RecyclerView) findViewById(R.id.submissions_list);
+        assert mRecyclerView != null;
+        mSpinner.setVisibility(View.VISIBLE);
+        mRecyclerView.setVisibility(View.GONE);
+
         mLayoutManager = new LinearLayoutManager(this);
         mRecyclerView.setLayoutManager(mLayoutManager);
-        mAdapter = new SubmissionsAdapter(homeSubs);
+        mAdapter = new SubmissionsAdapter(mSubs);
         mRecyclerView.setAdapter(mAdapter);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
-        assert drawer != null;
+        mDrawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        assert mDrawer != null;
 
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
-                this, drawer, toolbar,
+                this, mDrawer, toolbar,
                 R.string.navigation_drawer_open,
                 R.string.navigation_drawer_close);
-        drawer.addDrawerListener(toggle);
+        mDrawer.addDrawerListener(toggle);
         toggle.syncState();
 
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
-        assert navigationView != null;
-        navigationView.setNavigationItemSelectedListener(this);
+        mNavigationView= (NavigationView) findViewById(R.id.nav_view);
+        assert mNavigationView != null;
+        mNavigationView.setNavigationItemSelectedListener(this);
 
         if (!hasAuth())
             startActivity(new Intent(this, LoginActivity.class));
 
-        redditActor.tell(new GetHomeCmd(), activityRef);
+        getHome();
+        getUserSubreddits();
         redditActor.tell(new GetUserCmd(), activityRef);
     }
 
@@ -103,14 +118,17 @@ public class MainActivity extends AppCompatActivity
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
         } else {
-            super.onBackPressed();
+            if (!getTitle().equals("Redding"))
+                getHome();
+            else
+                super.onBackPressed();
         }
+
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
+        //getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
 
@@ -135,19 +153,8 @@ public class MainActivity extends AppCompatActivity
         // Handle navigation view item clicks here.
         int id = item.getItemId();
 
-        if (id == R.id.nav_camera) {
-            // Handle the camera action
-        } else if (id == R.id.nav_gallery) {
-
-        } else if (id == R.id.nav_slideshow) {
-
-        } else if (id == R.id.nav_manage) {
-
-        } else if (id == R.id.nav_share) {
-
-        } else if (id == R.id.nav_send) {
-
-        }
+        Subreddit subreddit = mSubreddits.get(id);
+        getSubreddit(subreddit);
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
@@ -175,13 +182,25 @@ public class MainActivity extends AppCompatActivity
     @Override
     public void onReceive(Object o) throws Exception {
         if (o instanceof HomeEvent) {
+            mSpinner.setVisibility(View.GONE);
+            mRecyclerView.setVisibility(View.VISIBLE);
+
             List<Submission> home = ((HomeEvent) o).getHome();
-            homeSubs.addAll(home);
+            mSubs.addAll(home);
             mAdapter.notifyDataSetChanged();
 
         } else if (o instanceof Submission) {
-            homeSubs.add((Submission) o);
+            if (firstSubmission) {
+                mSpinner.setVisibility(View.GONE);
+                mRecyclerView.setVisibility(View.VISIBLE);
+                firstSubmission = false;
+            }
+
+            mSubs.add((Submission) o);
             mAdapter.notifyDataSetChanged();
+
+        } else if (o instanceof UserSubredditsEvent) {
+            onUserSubredditsEvent((UserSubredditsEvent) o);
 
         } else if (o instanceof LoggedInAccount) {
             onLoggedInAccount((LoggedInAccount) o);
@@ -189,11 +208,44 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void onLoggedInAccount(LoggedInAccount account) {
-        TextView usernameView = (TextView) drawer.findViewById(R.id.username);
-        TextView karmaView = (TextView) drawer.findViewById(R.id.karma);
+        TextView usernameView = (TextView) mDrawer.findViewById(R.id.username);
+        TextView karmaView = (TextView) mDrawer.findViewById(R.id.karma);
 
         usernameView.setText(account.getFullName());
         karmaView.setText(String.valueOf(account.getCommentKarma()));
+    }
+
+    private void onUserSubredditsEvent(UserSubredditsEvent evt) {
+        Menu menu = mNavigationView.getMenu();
+        menu.clear();
+        int i = 0;
+        mSubreddits = evt.subreddits;
+        for (Subreddit subreddit: evt.subreddits) {
+            menu.add(i, i, Menu.NONE, subreddit.getDisplayName());
+            i++;
+        }
+    }
+
+    private void getHome() {
+        setTitle("Redding");
+        mSpinner.setVisibility(View.VISIBLE);
+        mRecyclerView.setVisibility(View.GONE);
+        firstSubmission = true;
+        mSubs.clear();
+        redditActor.tell(new GetSubredditCmd(), activityRef);
+    }
+
+    private void getUserSubreddits() {
+        redditActor.tell(new GetUserSubredditsCmd(), activityRef);
+    }
+
+    private void getSubreddit(Subreddit subreddit) {
+        setTitle(subreddit.getTitle());
+        mSpinner.setVisibility(View.VISIBLE);
+        mRecyclerView.setVisibility(View.GONE);
+        firstSubmission = true;
+        mSubs.clear();
+        redditActor.tell(new GetSubredditCmd(subreddit.getDisplayName()), activityRef);
     }
 
     private boolean hasAuth() {

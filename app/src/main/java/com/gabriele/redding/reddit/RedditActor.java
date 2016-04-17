@@ -7,14 +7,16 @@ import com.gabriele.actor.internals.AbstractActor;
 import com.gabriele.actor.internals.ActorMessage;
 import com.gabriele.redding.LoginActivity;
 import com.gabriele.redding.ReddingApp;
-import com.gabriele.redding.reddit.cmds.GetHomeCmd;
+import com.gabriele.redding.reddit.cmds.GetSubredditCmd;
 import com.gabriele.redding.reddit.cmds.GetUserCmd;
+import com.gabriele.redding.reddit.cmds.GetUserSubredditsCmd;
 import com.gabriele.redding.reddit.cmds.RefreshTokenCmd;
 import com.gabriele.redding.reddit.events.AuthFailEvent;
 import com.gabriele.redding.reddit.events.AuthOkEvent;
 import com.gabriele.redding.reddit.events.HomeEvent;
 import com.gabriele.redding.reddit.events.RefreshedTokenEvent;
 import com.gabriele.redding.reddit.events.UserChallengeEvent;
+import com.gabriele.redding.reddit.events.UserSubredditsEvent;
 
 import net.dean.jraw.RedditClient;
 import net.dean.jraw.auth.AuthenticationManager;
@@ -25,7 +27,10 @@ import net.dean.jraw.http.oauth.OAuthData;
 import net.dean.jraw.http.oauth.OAuthException;
 import net.dean.jraw.models.LoggedInAccount;
 import net.dean.jraw.models.Submission;
+import net.dean.jraw.models.Subreddit;
+import net.dean.jraw.paginators.Paginator;
 import net.dean.jraw.paginators.SubredditPaginator;
+import net.dean.jraw.paginators.UserSubredditsPaginator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,11 +57,14 @@ public class RedditActor extends AbstractActor {
 
     @Override
     public void onReceive(Object o) throws Exception {
-        if (o instanceof GetHomeCmd) {
-            runCmd(onGetHomeCmd((GetHomeCmd) o));
-
-        } else if (o instanceof GetUserCmd) {
+        if (o instanceof GetUserCmd) {
             runCmd(onGetUserCmd());
+
+        } else if (o instanceof GetSubredditCmd) {
+            runCmd(onGetSubredditCmd((GetSubredditCmd) o));
+
+        } else if (o instanceof GetUserSubredditsCmd) {
+            runCmd(onGetUserSubredditsCmd());
 
         } else if (o instanceof RefreshTokenCmd) {
             become(noauth);
@@ -84,12 +92,18 @@ public class RedditActor extends AbstractActor {
         }
     };
 
-    private Runnable onGetHomeCmd(final GetHomeCmd cmd) {
+    private Runnable onGetSubredditCmd(final GetSubredditCmd cmd) {
         return new Runnable() {
             @Override
             public void run() {
                 List<Submission> subs = new ArrayList<>();
-                for (Submission sub : new SubredditPaginator(mReddit).next()) {
+                Paginator<Submission> paginator;
+                if (cmd.name != null)
+                    paginator = new SubredditPaginator(mReddit, cmd.name);
+                else
+                    paginator = new SubredditPaginator(mReddit);
+
+                for (Submission sub : paginator.next()) {
                     if (cmd.streamed) {
                         getSender().tell(sub, getSelf());
                         try {
@@ -105,6 +119,18 @@ public class RedditActor extends AbstractActor {
         };
     }
 
+    private Runnable onGetUserSubredditsCmd() {
+        return new Runnable() {
+            @Override
+            public void run() {
+                List<Subreddit> subreddits = new ArrayList<>();
+                for (Subreddit subreddit: new UserSubredditsPaginator(mReddit, "subscriber").next()) {
+                    subreddits.add(subreddit);
+                }
+                getSender().tell(new UserSubredditsEvent(subreddits), getSelf());
+            }
+        };
+    }
 
     private Runnable onGetUserCmd() {
         return new Runnable() {
@@ -120,8 +146,11 @@ public class RedditActor extends AbstractActor {
         return new Runnable() {
             @Override
             public void run() {
-                Log.d(LOG_TAG, "Refreshing token");
                 try {
+                    AuthenticationState state = AuthenticationManager.get().checkAuthState();
+                    if (state == AuthenticationState.READY) return;
+
+                    Log.d(LOG_TAG, "Refreshing token");
                     AuthenticationManager.get().refreshAccessToken(LoginActivity.CREDENTIALS);
                     Log.d(LOG_TAG, "Refreshed token");
                     getSelf().tell(new RefreshedTokenEvent(), getSelf());

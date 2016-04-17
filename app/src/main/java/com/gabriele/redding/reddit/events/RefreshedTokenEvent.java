@@ -1,4 +1,4 @@
 package com.gabriele.redding.reddit.events;
 
-public class RefreshedTokenEvent {
+public class RefreshedTokenEvent implements Event {
 }
