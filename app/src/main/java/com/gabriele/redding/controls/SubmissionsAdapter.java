@@ -21,11 +21,21 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
     public static class ViewHolder extends RecyclerView.ViewHolder {
         // each data item is just a string in this case
         public View mView;
-        public TextView mTextView;
+        public TextView mTitleView;
+        public TextView mTimeView;
+        public TextView mCommentsView;
+        public TextView mPointsView;
+        public TextView mAuthorView;
+
         public ViewHolder(View v) {
             super(v);
             mView = v;
-            mTextView = (TextView) mView.findViewById(R.id.submission);
+            mTitleView = (TextView) mView.findViewById(R.id.title);
+            mTimeView = (TextView) mView.findViewById(R.id.time);
+            mCommentsView = (TextView) mView.findViewById(R.id.comments);
+            mPointsView = (TextView) mView.findViewById(R.id.points);
+            mAuthorView = (TextView) mView.findViewById(R.id.author);
+
         }
     }
 
@@ -52,13 +62,12 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
         // - get element from your dataset at this position
         // - replace the contents of the view with that element
         Submission submission = mDataset.get(position);
-        String txt = String.format("%s↑ /r/%s - %s\n",
-                submission.getScore(),
-                submission.getShortURL(),
-                submission.getTitle());
 
-        holder.mTextView.setText(txt);
-
+        holder.mTitleView.setText(submission.getTitle());
+        holder.mCommentsView.setText(String.valueOf(submission.getCommentCount()) + " comments");
+        holder.mPointsView.setText(String.valueOf(submission.getScore()) + " upvotes");
+//        holder.mTimeView.setText(submission.getCreated().toString());
+        holder.mAuthorView.setText(submission.getAuthor());
     }
 
     // Return the size of your dataset (invoked by the layout manager)

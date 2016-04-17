@@ -7,6 +7,7 @@ import com.gabriele.actor.internals.AbstractActor;
 import com.gabriele.redding.LoginActivity;
 import com.gabriele.redding.ReddingApp;
 import com.gabriele.redding.reddit.cmds.GetHomeCmd;
+import com.gabriele.redding.reddit.cmds.GetUserCmd;
 import com.gabriele.redding.reddit.cmds.RefreshTokenCmd;
 import com.gabriele.redding.reddit.events.AuthFailEvent;
 import com.gabriele.redding.reddit.events.AuthOkEvent;
@@ -34,7 +35,7 @@ import javax.inject.Inject;
 public class RedditActor extends AbstractActor {
 
     public static final String LOG_TAG = "RedditActor";
-    ExecutorService mService = Executors.newSingleThreadExecutor();
+    ExecutorService mService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
     @Inject
     RedditClient mReddit;
@@ -42,7 +43,7 @@ public class RedditActor extends AbstractActor {
     @Override
     public void preStart() {
         ((ReddingApp) getContext()).getRedditComponent().inject(this);
-        if (AuthenticationManager.get().checkAuthState() == AuthenticationState.NONE)
+        if (AuthenticationManager.get().checkAuthState() != AuthenticationState.NONE)
             become(noauth);
     }
 
@@ -51,10 +52,12 @@ public class RedditActor extends AbstractActor {
         if (o instanceof GetHomeCmd) {
             onGetHomeCmd(((GetHomeCmd) o).streamed);
 
+        } else if (o instanceof GetUserCmd) {
+            onGetUserCmd();
+
         } else if (o instanceof RefreshTokenCmd) {
             become(noauth);
             onRefreshTokenCmd();
-
         }
     }
 
@@ -62,6 +65,7 @@ public class RedditActor extends AbstractActor {
         @Override
         public void onReceive(Object o) {
             if (o instanceof RefreshTokenCmd) {
+                onRefreshTokenCmd();
 
             } else if (o instanceof UserChallengeEvent) {
                 onUserChallenge((UserChallengeEvent) o);
@@ -100,6 +104,15 @@ public class RedditActor extends AbstractActor {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+            }
+        });
+    }
+
+    private void onGetUserCmd() {
+        mService.execute(new Runnable() {
+            @Override
+            public void run() {
+                getSender().tell(AuthenticationManager.get().getRedditClient().me(), getSelf());
             }
         });
     }

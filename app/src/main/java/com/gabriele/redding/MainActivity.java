@@ -13,6 +13,7 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 
 import com.gabriele.actor.android.ActivityActor;
 import com.gabriele.actor.dispatchers.MainThreadDispatcher;
@@ -22,12 +23,14 @@ import com.gabriele.actor.internals.ActorSystem;
 import com.gabriele.actor.internals.Props;
 import com.gabriele.redding.controls.SubmissionsAdapter;
 import com.gabriele.redding.reddit.cmds.GetHomeCmd;
+import com.gabriele.redding.reddit.cmds.GetUserCmd;
 import com.gabriele.redding.reddit.cmds.RefreshTokenCmd;
 import com.gabriele.redding.reddit.events.AuthOkEvent;
 import com.gabriele.redding.reddit.events.HomeEvent;
 
 import net.dean.jraw.auth.AuthenticationManager;
 import net.dean.jraw.auth.AuthenticationState;
+import net.dean.jraw.models.LoggedInAccount;
 import net.dean.jraw.models.Submission;
 
 import java.util.ArrayList;
@@ -50,6 +53,7 @@ public class MainActivity extends AppCompatActivity
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
+    private DrawerLayout drawer;
     private List<Submission> homeSubs = new ArrayList<>();
 
     @Override
@@ -72,11 +76,13 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         assert drawer != null;
 
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
-                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+                this, drawer, toolbar,
+                R.string.navigation_drawer_open,
+                R.string.navigation_drawer_close);
         drawer.addDrawerListener(toggle);
         toggle.syncState();
 
@@ -88,6 +94,7 @@ public class MainActivity extends AppCompatActivity
             startActivity(new Intent(this, LoginActivity.class));
 
         redditActor.tell(new GetHomeCmd(), activityRef);
+        redditActor.tell(new GetUserCmd(), activityRef);
     }
 
     @Override
@@ -176,9 +183,17 @@ public class MainActivity extends AppCompatActivity
             homeSubs.add((Submission) o);
             mAdapter.notifyDataSetChanged();
 
-        } else if (o instanceof AuthOkEvent) {
-            redditActor.tell(new GetHomeCmd(), activityRef);
+        } else if (o instanceof LoggedInAccount) {
+            onLoggedInAccount((LoggedInAccount) o);
         }
+    }
+
+    private void onLoggedInAccount(LoggedInAccount account) {
+        TextView usernameView = (TextView) drawer.findViewById(R.id.username);
+        TextView karmaView = (TextView) drawer.findViewById(R.id.karma);
+
+        usernameView.setText(account.getFullName());
+        karmaView.setText(String.valueOf(account.getCommentKarma()));
     }
 
     private boolean hasAuth() {
