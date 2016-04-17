@@ -4,7 +4,7 @@ import com.gabriele.redding.MainActivity;
 import com.gabriele.redding.dagger.modules.ActorModule;
 import com.gabriele.redding.dagger.modules.AppModule;
 import com.gabriele.redding.dagger.modules.RedditModule;
-import com.gabriele.redding.reddit.LoginActivity;
+import com.gabriele.redding.LoginActivity;
 import com.gabriele.redding.reddit.RedditActor;
 
 import net.dean.jraw.RedditClient;

@@ -15,7 +15,6 @@ import dagger.Provides;
 @Module
 public class ActorModule {
 
-
     @Provides
     @Singleton
     ActorSystem providesActorSystem(Context context) {

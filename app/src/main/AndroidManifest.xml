@@ -21,7 +21,7 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity android:name=".reddit.LoginActivity"/>
+        <activity android:name=".LoginActivity"/>
         <meta-data android:name="net.dean.jraw.USER_AGENT_OVERRIDE" android:value="Redding" />
     </application>
 

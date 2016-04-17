@@ -2,8 +2,8 @@ package com.gabriele.redding.dagger.modules;
 
 import android.content.Context;
 
-import com.gabriele.redding.reddit.AndroidRedditClient;
-import com.gabriele.redding.reddit.AndroidTokenStore;
+import com.gabriele.redding.reddit.internals.AndroidRedditClient;
+import com.gabriele.redding.reddit.internals.AndroidTokenStore;
 
 import net.dean.jraw.RedditClient;
 import net.dean.jraw.auth.AuthenticationManager;

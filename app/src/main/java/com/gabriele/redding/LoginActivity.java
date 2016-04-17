@@ -1,34 +1,36 @@
-package com.gabriele.redding.reddit;
+package com.gabriele.redding;
 
 import android.graphics.Bitmap;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
-import com.gabriele.redding.R;
+import com.gabriele.actor.internals.ActorRef;
+import com.gabriele.redding.reddit.events.UserChallengeEvent;
 
 import net.dean.jraw.auth.AuthenticationManager;
-import net.dean.jraw.http.NetworkException;
 import net.dean.jraw.http.oauth.Credentials;
-import net.dean.jraw.http.oauth.OAuthData;
-import net.dean.jraw.http.oauth.OAuthException;
 import net.dean.jraw.http.oauth.OAuthHelper;
 
 import java.net.URL;
 
-public class LoginActivity extends AppCompatActivity {
+import javax.inject.Inject;
+import javax.inject.Named;
+
+public class LoginActivity extends AppCompatActivity  {
     public static final Credentials CREDENTIALS = Credentials.installedApp("N8oKowou05ZHXQ", "http://gabriele.xyz:8080");
 
     private final String TAG = getClass().getSimpleName();
+    @Inject @Named("RedditActor")
+    ActorRef redditActor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+        ((ReddingApp) getApplicationContext()).getRedditComponent().inject(this);
         // Create our RedditClient
         final OAuthHelper helper = AuthenticationManager.get().getRedditClient().getOAuthHelper();
 
@@ -44,39 +46,14 @@ public class LoginActivity extends AppCompatActivity {
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 if (url.contains("code=")) {
                     // We've detected the redirect URL
-                    onUserChallenge(url, CREDENTIALS);
+                    redditActor.tell(new UserChallengeEvent(url), ActorRef.noSender());
+                    LoginActivity.this.finish();
+
                 } else if (url.contains("error=")) {
                     Toast.makeText(LoginActivity.this, "You must press 'allow' to log in with this account", Toast.LENGTH_SHORT).show();
                     webView.loadUrl(authorizationUrl.toExternalForm());
                 }
             }
         });
-    }
-
-    private void onUserChallenge(final String url, final Credentials creds) {
-        new AsyncTask<String, Void, String>() {
-            @Override
-            protected String doInBackground(String... params) {
-                try {
-                    OAuthData data = AuthenticationManager.get().getRedditClient().getOAuthHelper().onUserChallenge(params[0], creds);
-                    AuthenticationManager.get().getRedditClient().authenticate(data);
-                    return AuthenticationManager.get().getRedditClient().getAuthenticatedUser();
-                } catch (NetworkException | OAuthException e) {
-                    Log.e(TAG, "Could not log in", e);
-                    return null;
-                }
-            }
-
-            @Override
-            protected void onPostExecute(String s) {
-                Log.i(TAG, s);
-                if (s != null)
-                    setResult(RESULT_OK);
-                else
-                    setResult(RESULT_CANCELED);
-
-                LoginActivity.this.finish();
-            }
-        }.execute(url);
     }
 }

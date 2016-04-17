@@ -2,9 +2,7 @@ package com.gabriele.redding;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.NavigationView;
-import android.support.design.widget.Snackbar;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -15,7 +13,6 @@ import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
 
 import com.gabriele.actor.android.ActivityActor;
 import com.gabriele.actor.dispatchers.MainThreadDispatcher;
@@ -24,8 +21,10 @@ import com.gabriele.actor.internals.ActorRef;
 import com.gabriele.actor.internals.ActorSystem;
 import com.gabriele.actor.internals.Props;
 import com.gabriele.redding.controls.SubmissionsAdapter;
-import com.gabriele.redding.reddit.LoginActivity;
-import com.gabriele.redding.reddit.RedditActor;
+import com.gabriele.redding.reddit.cmds.GetHomeCmd;
+import com.gabriele.redding.reddit.cmds.RefreshTokenCmd;
+import com.gabriele.redding.reddit.events.AuthOkEvent;
+import com.gabriele.redding.reddit.events.HomeEvent;
 
 import net.dean.jraw.auth.AuthenticationManager;
 import net.dean.jraw.auth.AuthenticationState;
@@ -62,8 +61,9 @@ public class MainActivity extends AppCompatActivity
         activityRef = system.actorOf(ActivityActor.class,
                 new Props(this).withDispatcher(MainThreadDispatcher.getInstance()));
 
+        system.getEventBus().subscribe(AuthOkEvent.class, activityRef);
+
         mRecyclerView = (RecyclerView) findViewById(R.id.submissions_list);
-        mRecyclerView.setHasFixedSize(true);
         mLayoutManager = new LinearLayoutManager(this);
         mRecyclerView.setLayoutManager(mLayoutManager);
         mAdapter = new SubmissionsAdapter(homeSubs);
@@ -72,25 +72,22 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
-
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        assert drawer != null;
+
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
-        drawer.setDrawerListener(toggle);
+        drawer.addDrawerListener(toggle);
         toggle.syncState();
 
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        assert navigationView != null;
         navigationView.setNavigationItemSelectedListener(this);
 
-        redditActor.tell(new RedditActor.GetHomeCmd(), activityRef);
+        if (!hasAuth())
+            startActivity(new Intent(this, LoginActivity.class));
+
+        redditActor.tell(new GetHomeCmd(), activityRef);
     }
 
     @Override
@@ -161,29 +158,31 @@ public class MainActivity extends AppCompatActivity
             case READY:
                 break;
             case NONE:
-                startActivityForResult(new Intent(this, LoginActivity.class), 1);
                 break;
             case NEED_REFRESH:
-                redditActor.tell(new RedditActor.RefreshTokenCmd(), activityRef);
+                redditActor.tell(new RefreshTokenCmd(), activityRef);
                 break;
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == 1) {
-            if (resultCode == RESULT_OK) {
-                redditActor.tell(new RedditActor.GetHomeCmd(), activityRef);
-            }
         }
     }
 
     @Override
     public void onReceive(Object o) throws Exception {
-        if (o instanceof RedditActor.HomeEvent) {
-            List<Submission> home = ((RedditActor.HomeEvent) o).getHome();
+        if (o instanceof HomeEvent) {
+            List<Submission> home = ((HomeEvent) o).getHome();
             homeSubs.addAll(home);
             mAdapter.notifyDataSetChanged();
+
+        } else if (o instanceof Submission) {
+            homeSubs.add((Submission) o);
+            mAdapter.notifyDataSetChanged();
+
+        } else if (o instanceof AuthOkEvent) {
+            redditActor.tell(new GetHomeCmd(), activityRef);
         }
+    }
+
+    private boolean hasAuth() {
+        AuthenticationState state = AuthenticationManager.get().checkAuthState();
+        return state != AuthenticationState.NONE;
     }
 }

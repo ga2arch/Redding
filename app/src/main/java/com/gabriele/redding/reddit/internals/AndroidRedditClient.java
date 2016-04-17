@@ -1,4 +1,4 @@
-package com.gabriele.redding.reddit;
+package com.gabriele.redding.reddit.internals;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
