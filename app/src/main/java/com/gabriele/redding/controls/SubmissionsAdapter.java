@@ -5,11 +5,14 @@ import android.content.Intent;
 import android.net.Uri;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.gabriele.redding.R;
+import com.gabriele.redding.internals.Holder;
+import com.gabriele.redding.reddit.SubmissionActivity;
 
 import net.dean.jraw.models.Submission;
 
@@ -23,7 +26,7 @@ import java.util.Locale;
 public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.ViewHolder> {
     private Context mContext;
     private List<Submission> mDataset;
-
+    private float lastTouchX;
     // Provide a reference to the views for each data item
     // Complex data items may need more than one view per item, and
     // you provide access to all the views for a data item in a view holder
@@ -59,7 +62,7 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
                                                    int viewType) {
         // create a new view
         View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.submissions_view, parent, false);
+                .inflate(R.layout.row_submissions_view, parent, false);
         // set the view's size, margins, paddings and layout parameters
         ViewHolder vh = new ViewHolder(v);
         return vh;
@@ -83,12 +86,28 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
 
         holder.mTimeView.setText(String.format(Locale.getDefault(), "%d hours %d minutes ago", hours, minutes));
         holder.mAuthorView.setText(submission.getAuthor());
-
         holder.mView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(submission.getUrl()));
-                mContext.startActivity(browserIntent);
+                int width = view.getWidth();
+                double part = width * .15;
+                if (lastTouchX >= width - part) {
+                    String url = "http://reddit.com" + submission.getPermalink();
+                    Holder.object = submission;
+                    mContext.startActivity(new Intent(mContext, SubmissionActivity.class));
+
+                } else {
+                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(submission.getUrl()));
+                    mContext.startActivity(browserIntent);
+                }
+            }
+        });
+
+        holder.mView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                lastTouchX = event.getX();
+                return false;
             }
         });
     }

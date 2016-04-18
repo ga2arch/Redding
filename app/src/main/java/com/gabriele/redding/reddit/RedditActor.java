@@ -104,15 +104,16 @@ public class RedditActor extends AbstractActor {
                     paginator = new SubredditPaginator(mReddit);
 
                 for (Submission sub : paginator.next()) {
+                    Submission fullSub = mReddit.getSubmission(sub.getId());
                     if (cmd.streamed) {
-                        getSender().tell(sub, getSelf());
+                        getSender().tell(fullSub, getSelf());
                         try {
                             Thread.sleep(80);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
                     } else
-                        subs.add(sub);
+                        subs.add(fullSub);
                 }
                 getSender().tell(new SubredditEvent(subs), getSelf());
             }
