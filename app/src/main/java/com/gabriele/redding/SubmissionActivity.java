@@ -1,7 +1,6 @@
 package com.gabriele.redding;
 
 import android.os.Bundle;
-import android.support.design.widget.NavigationView;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -33,18 +32,17 @@ public class SubmissionActivity extends AppCompatActivityAsActor {
     ActorRef redditActor;
 
     private SwipeRefreshLayout mRefreshLayout;
-    private NavigationView mNavigationView;
     private RecyclerView mRecyclerView;
     private RecyclerView.Adapter mAdapter;
     private RecyclerView.LayoutManager mLayoutManager;
     private ProgressBar mSpinner;
-    private Submission submission;
+    private Submission mSubmission;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_submission);
-        ((ReddingApp)getApplicationContext()).getRedditComponent().inject(this);
+        ((ReddingApp) getApplicationContext()).getRedditComponent().inject(this);
 
         mRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.submissions_refresh);
         mSpinner = (ProgressBar) findViewById(R.id.spinner);
@@ -57,7 +55,7 @@ public class SubmissionActivity extends AppCompatActivityAsActor {
         mRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                redditActor.tell(new GetFullSubmissionCmd(submission.getId()), getSelf());
+                redditActor.tell(new GetFullSubmissionCmd(mSubmission.getId()), getSelf());
             }
         });
     }
@@ -72,9 +70,9 @@ public class SubmissionActivity extends AppCompatActivityAsActor {
             mSpinner.setVisibility(View.GONE);
             mRecyclerView.setVisibility(View.VISIBLE);
 
-            submission = ((FullSubmissionEvent) o).getSubmission();
+            mSubmission = ((FullSubmissionEvent) o).getSubmission();
 
-            List<CommentWithDepth> comments = dfs(submission.getComments());
+            List<CommentWithDepth> comments = dfs(mSubmission.getComments());
             mAdapter = new CommentsAdapter(this, comments);
             mRecyclerView.setAdapter(mAdapter);
         }
