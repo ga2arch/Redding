@@ -1,9 +1,14 @@
 package com.gabriele.redding.controls;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.support.v7.widget.RecyclerView;
 import android.text.Html;
+import android.text.SpannableString;
 import android.text.Spanned;
+import android.text.method.LinkMovementMethod;
+import android.text.style.ClickableSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -75,7 +80,19 @@ public class CommentsAdapter extends RecyclerView.Adapter<CommentsAdapter.ViewHo
         CommentWithDepth comment = mComments.get(position);
         CommentMessage message = new CommentMessage(comment.getComment().getDataNode());
         Spanned spanned = Html.fromHtml(mAndDown.markdownToHtml(message.getBody().trim()));
-        holder.mContentView.setText(spanned.subSequence(0, spanned.length()-2));
+        String content = spanned.toString();
+        final SpannableString spannable = new SpannableString(spanned);
+
+        for (Utils.LinkPosition pos: Utils.findLinks(content)) {
+            spannable.setSpan(new CustomClickSpan(mContext, pos.getUrl()),
+                    pos.getStart(),
+                    pos.getEnd(),
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+
+        holder.mContentView.setText(spannable.subSequence(0, spanned.length()-2));
+        holder.mContentView.setMovementMethod(LinkMovementMethod.getInstance());
+
         holder.mAuthorView.setText(message.getAuthor());
         holder.mPointsView.setText(String.format("%s upvotes", comment.getComment().getScore()));
 
@@ -99,5 +116,22 @@ public class CommentsAdapter extends RecyclerView.Adapter<CommentsAdapter.ViewHo
     @Override
     public int getItemCount() {
         return mComments.size();
+    }
+
+    public static class CustomClickSpan extends ClickableSpan {
+        private Context context;
+        private String url;
+
+        public CustomClickSpan(Context context, String url) {
+            super();
+            this.context = context;
+            this.url = url;
+        }
+
+        @Override
+        public void onClick(View view) {
+            Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            context.startActivity(browserIntent);
+        }
     }
 }

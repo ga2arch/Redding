@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.RecyclerView;
+import android.text.Html;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -83,9 +84,9 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
         // - get element from your dataset at this position
         // - replace the contents of the view with that element
         final Submission submission = mDataset.get(position);
-        holder.mTitleView.setText(submission.getTitle());
-        holder.mCommentsView.setText(String.valueOf(submission.getCommentCount()) + " comments");
-        holder.mPointsView.setText(String.valueOf(submission.getScore()) + " upvotes");
+        holder.mTitleView.setText(Html.fromHtml(submission.getTitle()));
+        holder.mCommentsView.setText(String.format("%s comments", submission.getCommentCount()));
+        holder.mPointsView.setText(String.format("%s upvotes", submission.getScore()));
 
         DateTime startTime = new DateTime(submission.getCreatedUtc());
         Period p = new Period(startTime, DateTime.now(DateTimeZone.UTC));
@@ -93,7 +94,14 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
         long hours = p.getHours();
         long minutes = p.getMinutes();
 
-        holder.mTimeView.setText(String.format(Locale.getDefault(), "%d hours %d minutes ago", hours, minutes));
+        String time;
+        if (hours > 0) {
+            time = String.format(Locale.getDefault(), "%d hours %d minutes ago", hours, minutes);
+        } else {
+            time = String.format(Locale.getDefault(), "%d minutes ago", minutes);
+        }
+
+        holder.mTimeView.setText(time);
         holder.mAuthorView.setText(submission.getAuthor());
         holder.mView.setOnClickListener(new View.OnClickListener() {
             @Override

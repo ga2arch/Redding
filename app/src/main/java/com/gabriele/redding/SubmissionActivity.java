@@ -52,6 +52,7 @@ public class SubmissionActivity extends AppCompatActivityAsActor {
         assert mRecyclerView != null;
         mLayoutManager = new LinearLayoutManager(this);
         mRecyclerView.setLayoutManager(mLayoutManager);
+        //mRecyclerView.addItemDecoration(new DividerItemDecoration(this);
 
         mRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
