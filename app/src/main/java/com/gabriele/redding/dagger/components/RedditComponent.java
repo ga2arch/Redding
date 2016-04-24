@@ -7,7 +7,7 @@ import com.gabriele.redding.dagger.modules.ActorModule;
 import com.gabriele.redding.dagger.modules.AppModule;
 import com.gabriele.redding.dagger.modules.RedditModule;
 import com.gabriele.redding.reddit.RedditActor;
-import com.gabriele.redding.reddit.SubmissionActivity;
+import com.gabriele.redding.SubmissionActivity;
 
 import net.dean.jraw.RedditClient;
 import net.dean.jraw.auth.AuthenticationManager;

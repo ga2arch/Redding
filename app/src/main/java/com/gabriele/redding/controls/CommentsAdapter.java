@@ -2,35 +2,55 @@ package com.gabriele.redding.controls;
 
 import android.content.Context;
 import android.support.v7.widget.RecyclerView;
+import android.text.Html;
+import android.text.Spanned;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.commonsware.cwac.anddown.AndDown;
 import com.gabriele.redding.R;
+import com.gabriele.redding.utils.Utils;
 
-import net.dean.jraw.models.Comment;
 import net.dean.jraw.models.CommentMessage;
-import net.dean.jraw.models.CommentNode;
+
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.joda.time.Period;
+
+import java.util.List;
+import java.util.Locale;
+
+import static com.gabriele.redding.SubmissionActivity.CommentWithDepth;
 
 public class CommentsAdapter extends RecyclerView.Adapter<CommentsAdapter.ViewHolder> {
     private Context mContext;
-    private CommentNode mComments;
+    private List<CommentWithDepth> mComments;
+    private final AndDown mAndDown = new AndDown();
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         // each data item is just a string in this case
         public View mView;
         public TextView mContentView;
+        public TextView mTimeView;
+        public TextView mCommentsView;
+        public TextView mPointsView;
+        public TextView mAuthorView;
 
         public ViewHolder(View v) {
             super(v);
             mView = v;
             mContentView = (TextView) mView.findViewById(R.id.content);
+            mTimeView = (TextView) mView.findViewById(R.id.time);
+            mCommentsView = (TextView) mView.findViewById(R.id.comments);
+            mPointsView = (TextView) mView.findViewById(R.id.points);
+            mAuthorView = (TextView) mView.findViewById(R.id.author);
         }
     }
 
     // Provide a suitable constructor (depends on the kind of dataset)
-    public CommentsAdapter(Context context, CommentNode myDataset) {
+    public CommentsAdapter(Context context, List<CommentWithDepth> myDataset) {
         mComments = myDataset;
         mContext = context;
     }
@@ -52,14 +72,32 @@ public class CommentsAdapter extends RecyclerView.Adapter<CommentsAdapter.ViewHo
     public void onBindViewHolder(final ViewHolder holder, int position) {
         // - get element from your dataset at this position
         // - replace the contents of the view with that element
-        Comment comment = mComments.get(0).getChildren().get(position).getComment();
-        CommentMessage message = new CommentMessage(comment.getDataNode());
-        holder.mContentView.setText(message.getBody());
+        CommentWithDepth comment = mComments.get(position);
+        CommentMessage message = new CommentMessage(comment.getComment().getDataNode());
+        Spanned spanned = Html.fromHtml(mAndDown.markdownToHtml(message.getBody().trim()));
+        holder.mContentView.setText(spanned.subSequence(0, spanned.length()-2));
+        holder.mAuthorView.setText(message.getAuthor());
+        holder.mPointsView.setText(String.format("%s upvotes", comment.getComment().getScore()));
+
+        DateTime startTime = new DateTime(comment.getComment().getCreatedUtc());
+        Period p = new Period(startTime, DateTime.now(DateTimeZone.UTC));
+
+        long hours = p.getHours();
+        long minutes = p.getMinutes();
+
+        holder.mTimeView.setText(String.format(Locale.getDefault(), "%d hours %d minutes ago", hours, minutes));
+        int padding = Utils.spToPixels(mContext, 10);
+        int px = Utils.spToPixels(mContext, (comment.getDepth()-1)*10);
+        holder.mView.setPadding(padding + px,
+                0,
+                Utils.spToPixels(mContext, 10),
+                0);
+
     }
 
     // Return the size of your dataset (invoked by the layout manager)
     @Override
     public int getItemCount() {
-        return mComments.get(0).getChildren().size();
+        return mComments.size();
     }
 }

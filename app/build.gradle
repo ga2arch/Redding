@@ -27,6 +27,10 @@ dependencies {
     compile 'com.android.support:design:23.2.1'
     compile "net.dean.jraw:JRAW:0.8.0"
     compile 'joda-time:joda-time:2.9.3'
+    compile 'com.mikhaellopez:hfrecyclerview:1.0.0'
+    compile 'org.lucasr.twowayview:twowayview:0.1.4'
+    compile 'com.commonsware.cwac:anddown:0.2.4'
+
     compile project(path: ':actor')
 
     apt 'com.google.dagger:dagger-compiler:2.2'

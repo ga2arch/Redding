@@ -6,7 +6,7 @@ import java.util.Collections;
 import java.util.List;
 
 public class SubredditEvent implements Event {
-    List<Submission> home;
+    private final List<Submission> home;
 
     public SubredditEvent(List<Submission> home) {
         this.home = home;

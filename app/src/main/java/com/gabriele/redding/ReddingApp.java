@@ -1,14 +1,13 @@
 package com.gabriele.redding;
 
-import android.app.Application;
-
+import com.gabriele.actor.android.ActorApplication;
 import com.gabriele.redding.dagger.components.DaggerRedditComponent;
 import com.gabriele.redding.dagger.components.RedditComponent;
 import com.gabriele.redding.dagger.modules.ActorModule;
 import com.gabriele.redding.dagger.modules.AppModule;
 import com.gabriele.redding.dagger.modules.RedditModule;
 
-public class ReddingApp extends Application {
+public class ReddingApp extends ActorApplication {
 
     private RedditComponent mRedditComponent;
 

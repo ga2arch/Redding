@@ -1,8 +1,8 @@
 package com.gabriele.redding.controls;
 
-import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -10,9 +10,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import com.gabriele.actor.internals.ActorContext;
+import com.gabriele.actor.internals.ActorRef;
+import com.gabriele.actor.internals.Props;
 import com.gabriele.redding.R;
-import com.gabriele.redding.internals.Holder;
-import com.gabriele.redding.reddit.SubmissionActivity;
+import com.gabriele.redding.SubmissionActivity;
 
 import net.dean.jraw.models.Submission;
 
@@ -24,7 +26,9 @@ import java.util.List;
 import java.util.Locale;
 
 public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.ViewHolder> {
-    private Context mContext;
+    private AppCompatActivity mActivity;
+    private ActorContext mActorContext;
+    private ActorRef mRef;
     private List<Submission> mDataset;
     private float lastTouchX;
     // Provide a reference to the views for each data item
@@ -51,9 +55,14 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
     }
 
     // Provide a suitable constructor (depends on the kind of dataset)
-    public SubmissionsAdapter(Context context, List<Submission> myDataset) {
+    public SubmissionsAdapter(AppCompatActivity activity,
+                              ActorRef activityRef,
+                              ActorContext actorContext,
+                              List<Submission> myDataset) {
+        mActivity = activity;
+        mActorContext = actorContext;
         mDataset = myDataset;
-        mContext = context;
+        mRef = activityRef;
     }
 
     // Create new views (invoked by the layout manager)
@@ -92,13 +101,12 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
                 int width = view.getWidth();
                 double part = width * .15;
                 if (lastTouchX >= width - part) {
-                    String url = "http://reddit.com" + submission.getPermalink();
-                    Holder.object = submission;
-                    mContext.startActivity(new Intent(mContext, SubmissionActivity.class));
+                    ActorRef ref = mActorContext.actorOf(Props.create(mActivity, SubmissionActivity.class));
+                    ref.tell(submission, mRef);
 
                 } else {
                     Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(submission.getUrl()));
-                    mContext.startActivity(browserIntent);
+                    mActivity.startActivity(browserIntent);
                 }
             }
         });

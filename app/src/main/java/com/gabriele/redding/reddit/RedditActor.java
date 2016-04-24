@@ -2,19 +2,24 @@ package com.gabriele.redding.reddit;
 
 import android.util.Log;
 
+import com.gabriele.actor.exceptions.ActorIsTerminatedException;
 import com.gabriele.actor.interfaces.OnReceiveFunction;
 import com.gabriele.actor.internals.AbstractActor;
 import com.gabriele.actor.internals.ActorMessage;
+import com.gabriele.actor.internals.ActorRef;
 import com.gabriele.redding.LoginActivity;
 import com.gabriele.redding.ReddingApp;
+import com.gabriele.redding.reddit.cmds.GetFullSubmissionCmd;
 import com.gabriele.redding.reddit.cmds.GetSubredditCmd;
 import com.gabriele.redding.reddit.cmds.GetUserCmd;
 import com.gabriele.redding.reddit.cmds.GetUserSubredditsCmd;
 import com.gabriele.redding.reddit.cmds.RefreshTokenCmd;
+import com.gabriele.redding.reddit.cmds.StopRequestsCmd;
 import com.gabriele.redding.reddit.events.AuthFailEvent;
 import com.gabriele.redding.reddit.events.AuthOkEvent;
-import com.gabriele.redding.reddit.events.SubredditEvent;
+import com.gabriele.redding.reddit.events.FullSubmissionEvent;
 import com.gabriele.redding.reddit.events.RefreshedTokenEvent;
+import com.gabriele.redding.reddit.events.SubredditEvent;
 import com.gabriele.redding.reddit.events.UserChallengeEvent;
 import com.gabriele.redding.reddit.events.UserSubredditsEvent;
 
@@ -33,16 +38,19 @@ import net.dean.jraw.paginators.SubredditPaginator;
 import net.dean.jraw.paginators.UserSubredditsPaginator;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import javax.inject.Inject;
 
 public class RedditActor extends AbstractActor {
 
     public static final String LOG_TAG = "RedditActor";
-    ExecutorService mService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private final ExecutorService mService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private final HashMap<ActorRef, ArrayList<Future>> mRequests = new HashMap<>();
 
     @Inject
     RedditClient mReddit;
@@ -65,6 +73,17 @@ public class RedditActor extends AbstractActor {
 
         } else if (o instanceof GetUserSubredditsCmd) {
             runCmd(onGetUserSubredditsCmd());
+
+        } else if (o instanceof GetFullSubmissionCmd) {
+            runCmd(onGetFullSubmission((GetFullSubmissionCmd) o));
+
+        } else if (o instanceof StopRequestsCmd) {
+            ArrayList<Future> fs = mRequests.get(getSender());
+            if (fs != null) {
+                for (Future f: fs) {
+                    f.cancel(true);
+                }
+            }
 
         } else if (o instanceof RefreshTokenCmd) {
             become(noauth);
@@ -93,34 +112,46 @@ public class RedditActor extends AbstractActor {
     };
 
     private Runnable onGetSubredditCmd(final GetSubredditCmd cmd) {
+        final ActorRef sender = getSender();
         return new Runnable() {
             @Override
             public void run() {
                 List<Submission> subs = new ArrayList<>();
                 Paginator<Submission> paginator;
-                if (cmd.name != null)
-                    paginator = new SubredditPaginator(mReddit, cmd.name);
+                if (cmd.getName() != null)
+                    paginator = new SubredditPaginator(mReddit, cmd.getName());
                 else
                     paginator = new SubredditPaginator(mReddit);
 
                 for (Submission sub : paginator.next()) {
-                    Submission fullSub = mReddit.getSubmission(sub.getId());
-                    if (cmd.streamed) {
-                        getSender().tell(fullSub, getSelf());
+                    if (cmd.isStreamed()) {
+                        sender.tell(sub, getSelf());
                         try {
                             Thread.sleep(80);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
                     } else
-                        subs.add(fullSub);
+                        subs.add(sub);
                 }
-                getSender().tell(new SubredditEvent(subs), getSelf());
+                sender.tell(new SubredditEvent(subs), getSelf());
+            }
+        };
+    }
+
+    private Runnable onGetFullSubmission(final GetFullSubmissionCmd cmd) {
+        final ActorRef sender = getSender();
+        return new Runnable() {
+            @Override
+            public void run() {
+                Submission fullSub = mReddit.getSubmission(cmd.getSubmissionId());
+                sender.tell(new FullSubmissionEvent(fullSub), getSelf());
             }
         };
     }
 
     private Runnable onGetUserSubredditsCmd() {
+        final ActorRef sender = getSender();
         return new Runnable() {
             @Override
             public void run() {
@@ -128,17 +159,18 @@ public class RedditActor extends AbstractActor {
                 for (Subreddit subreddit: new UserSubredditsPaginator(mReddit, "subscriber").next()) {
                     subreddits.add(subreddit);
                 }
-                getSender().tell(new UserSubredditsEvent(subreddits), getSelf());
+                sender.tell(new UserSubredditsEvent(subreddits), getSelf());
             }
         };
     }
 
     private Runnable onGetUserCmd() {
+        final ActorRef sender = getSender();
         return new Runnable() {
             @Override
             public void run() {
                 LoggedInAccount account = AuthenticationManager.get().getRedditClient().me();
-                getSender().tell(account, getSelf());
+                sender.tell(account, getSelf());
             }
         };
     }
@@ -171,7 +203,7 @@ public class RedditActor extends AbstractActor {
                     OAuthData data  = AuthenticationManager.get()
                             .getRedditClient()
                             .getOAuthHelper()
-                            .onUserChallenge(evt.url, LoginActivity.CREDENTIALS);
+                            .onUserChallenge(evt.getUrl(), LoginActivity.CREDENTIALS);
                     AuthenticationManager.get().getRedditClient().authenticate(data);
                     String username = AuthenticationManager.get().getRedditClient().getAuthenticatedUser();
                     getSelf().tell(new AuthOkEvent(username), getSelf());
@@ -187,7 +219,7 @@ public class RedditActor extends AbstractActor {
 
     private void runCmd(final Runnable fun) {
         final ActorMessage message = getActorContext().getCurrentMessage();
-        mService.execute(new Runnable() {
+        Future f = mService.submit(new Runnable() {
             @Override
             public void run() {
                 try {
@@ -197,9 +229,20 @@ public class RedditActor extends AbstractActor {
                         getSelf().tell(new RefreshTokenCmd(), getSelf());
                         getSelf().tell(message.getObject(), message.getSender());
                     }
+                } catch (ActorIsTerminatedException e) {
+                    Log.d(LOG_TAG, e.getMessage(), e);
                 }
             }
         });
+
+        ArrayList<Future> requests = mRequests.get(getSender());
+        if (requests == null) {
+            requests = new ArrayList<>();
+            requests.add(f);
+        } else {
+            requests.add(f);
+            mRequests.put(getSender(), requests);
+        }
     }
 
 }
