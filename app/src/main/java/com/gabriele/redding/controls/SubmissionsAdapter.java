@@ -43,6 +43,7 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
         public TextView mCommentsView;
         public TextView mPointsView;
         public TextView mAuthorView;
+        public TextView mSubredditView;
 
         public ViewHolder(View v) {
             super(v);
@@ -52,6 +53,7 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
             mCommentsView = (TextView) mView.findViewById(R.id.comments);
             mPointsView = (TextView) mView.findViewById(R.id.points);
             mAuthorView = (TextView) mView.findViewById(R.id.author);
+            mSubredditView = (TextView) mView.findViewById(R.id.subreddit);
         }
     }
 
@@ -103,6 +105,7 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
 
         holder.mTimeView.setText(time);
         holder.mAuthorView.setText(submission.getAuthor());
+        holder.mSubredditView.setText(String.format("r/%s", submission.getSubredditName()));
         holder.mView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {

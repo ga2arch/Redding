@@ -17,12 +17,13 @@
             android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
-
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
         <activity android:name=".LoginActivity"/>
-        <activity android:name=".SubmissionActivity"/>
+        <activity
+            android:name=".SubmissionActivity"
+            android:theme="@style/AppTheme.NoActionBar" />
         <meta-data android:name="net.dean.jraw.USER_AGENT_OVERRIDE" android:value="Redding" />
     </application>
 

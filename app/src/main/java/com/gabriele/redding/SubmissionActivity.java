@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.Toolbar;
 import android.view.View;
 import android.widget.ProgressBar;
 
@@ -44,6 +45,10 @@ public class SubmissionActivity extends AppCompatActivityAsActor {
         setContentView(R.layout.activity_submission);
         ((ReddingApp) getApplicationContext()).getRedditComponent().inject(this);
 
+        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        getSupportActionBar().hide();
+
         mRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.submissions_refresh);
         mSpinner = (ProgressBar) findViewById(R.id.spinner);
         mRecyclerView = (RecyclerView) findViewById(R.id.comments_list);
@@ -71,9 +76,8 @@ public class SubmissionActivity extends AppCompatActivityAsActor {
             mRecyclerView.setVisibility(View.VISIBLE);
 
             mSubmission = ((FullSubmissionEvent) o).getSubmission();
-
             List<CommentWithDepth> comments = dfs(mSubmission.getComments());
-            mAdapter = new CommentsAdapter(this, comments);
+            mAdapter = new CommentsAdapter(this, mSubmission, comments);
             mRecyclerView.setAdapter(mAdapter);
         }
     }
