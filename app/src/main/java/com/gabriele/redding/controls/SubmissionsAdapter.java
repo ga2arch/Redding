@@ -1,8 +1,5 @@
 package com.gabriele.redding.controls;
 
-import android.content.Intent;
-import android.net.Uri;
-import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.RecyclerView;
 import android.text.Html;
 import android.view.LayoutInflater;
@@ -11,11 +8,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import com.gabriele.actor.internals.ActorContext;
 import com.gabriele.actor.internals.ActorRef;
-import com.gabriele.actor.internals.Props;
 import com.gabriele.redding.R;
-import com.gabriele.redding.SubmissionActivity;
 
 import net.dean.jraw.models.Submission;
 
@@ -27,8 +21,6 @@ import java.util.List;
 import java.util.Locale;
 
 public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.ViewHolder> {
-    private AppCompatActivity mActivity;
-    private ActorContext mActorContext;
     private ActorRef mRef;
     private List<Submission> mDataset;
     private float lastTouchX;
@@ -58,12 +50,8 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
     }
 
     // Provide a suitable constructor (depends on the kind of dataset)
-    public SubmissionsAdapter(AppCompatActivity activity,
-                              ActorRef activityRef,
-                              ActorContext actorContext,
+    public SubmissionsAdapter(ActorRef activityRef,
                               List<Submission> myDataset) {
-        mActivity = activity;
-        mActorContext = actorContext;
         mDataset = myDataset;
         mRef = activityRef;
     }
@@ -105,19 +93,17 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
 
         holder.mTimeView.setText(time);
         holder.mAuthorView.setText(submission.getAuthor());
-        holder.mSubredditView.setText(String.format("r/%s", submission.getSubredditName()));
+        holder.mSubredditView.setText(String.format("/r/%s", submission.getSubredditName()));
         holder.mView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 int width = view.getWidth();
                 double part = width * .15;
                 if (lastTouchX >= width - part) {
-                    ActorRef ref = mActorContext.actorOf(Props.create(mActivity, SubmissionActivity.class));
-                    ref.tell(submission, mRef);
+                    mRef.tell(new OpenSubmissionCmd(submission), mRef);
 
                 } else {
-                    Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(submission.getUrl()));
-                    mActivity.startActivity(browserIntent);
+                    mRef.tell(new OpenUrlCmd(submission.getUrl()), mRef);
                 }
             }
         });
@@ -136,4 +122,29 @@ public class SubmissionsAdapter extends RecyclerView.Adapter<SubmissionsAdapter.
     public int getItemCount() {
         return mDataset.size();
     }
+
+    public static class OpenSubmissionCmd {
+        private Submission submission;
+
+        public OpenSubmissionCmd(Submission submission) {
+            this.submission = submission;
+        }
+
+        public Submission getSubmission() {
+            return submission;
+        }
+    }
+
+    public static class OpenUrlCmd {
+        private String url;
+
+        public OpenUrlCmd(String url) {
+            this.url = url;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+    }
+
 }

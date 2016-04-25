@@ -118,21 +118,14 @@ public class RedditActor extends AbstractActor {
             public void run() {
                 List<Submission> subs = new ArrayList<>();
                 Paginator<Submission> paginator;
-                if (cmd.getName() != null)
-                    paginator = new SubredditPaginator(mReddit, cmd.getName());
+                Subreddit subreddit = cmd.getSubreddit();
+                if (subreddit != null)
+                    paginator = new SubredditPaginator(mReddit, subreddit.getDisplayName());
                 else
                     paginator = new SubredditPaginator(mReddit);
 
                 for (Submission sub : paginator.next()) {
-                    if (cmd.isStreamed()) {
-                        sender.tell(sub, getSelf());
-                        try {
-                            Thread.sleep(80);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    } else
-                        subs.add(sub);
+                    subs.add(sub);
                 }
                 sender.tell(new SubredditEvent(subs), getSelf());
             }
@@ -225,6 +218,7 @@ public class RedditActor extends AbstractActor {
                 try {
                     fun.run();
                 } catch (NetworkException e) {
+                    Log.e(LOG_TAG, e.getMessage(), e);
                     if (e.getMessage().contains("403")) {
                         getSelf().tell(new RefreshTokenCmd(), getSelf());
                         getSelf().tell(message.getObject(), message.getSender());

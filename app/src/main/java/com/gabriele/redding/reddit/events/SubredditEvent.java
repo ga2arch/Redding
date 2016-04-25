@@ -12,7 +12,7 @@ public class SubredditEvent implements Event {
         this.home = home;
     }
 
-    public List<Submission> getSubreddit() {
+    public List<Submission> getSubmissions() {
         return Collections.unmodifiableList(home);
     }
 }

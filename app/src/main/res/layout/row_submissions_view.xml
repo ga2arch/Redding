@@ -21,7 +21,7 @@
             android:paddingBottom="2sp">
 
             <TextView
-                android:id="@+id/author"
+                android:id="@+id/subreddit"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="#8F8F8F">
@@ -86,7 +86,7 @@
             </TextView>
 
             <TextView
-                android:id="@+id/subreddit"
+                android:id="@+id/author"
                 android:layout_width="120sp"
                 android:layout_height="wrap_content"
                 android:layout_alignParentRight="true"

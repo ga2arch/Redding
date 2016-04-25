@@ -5,37 +5,30 @@ import android.os.Bundle;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
-import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.gabriele.actor.android.AppCompatActivityAsActor;
 import com.gabriele.actor.interfaces.WithReceive;
 import com.gabriele.actor.internals.ActorRef;
-import com.gabriele.redding.controls.SubmissionsAdapter;
+import com.gabriele.actor.internals.Props;
+import com.gabriele.redding.fragments.SubredditFragment;
 import com.gabriele.redding.reddit.cmds.GetSubredditCmd;
 import com.gabriele.redding.reddit.cmds.GetUserCmd;
 import com.gabriele.redding.reddit.cmds.GetUserSubredditsCmd;
 import com.gabriele.redding.reddit.cmds.RefreshTokenCmd;
 import com.gabriele.redding.reddit.events.AuthOkEvent;
-import com.gabriele.redding.reddit.events.SubredditEvent;
 import com.gabriele.redding.reddit.events.UserSubredditsEvent;
 
 import net.dean.jraw.auth.AuthenticationManager;
 import net.dean.jraw.auth.AuthenticationState;
 import net.dean.jraw.models.LoggedInAccount;
-import net.dean.jraw.models.Submission;
 import net.dean.jraw.models.Subreddit;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -49,33 +42,16 @@ public class MainActivity extends AppCompatActivityAsActor
     @Inject @Named("RedditActor")
     ActorRef redditActor;
 
-    private SwipeRefreshLayout mRefreshLayout;
     private NavigationView mNavigationView;
-    private RecyclerView mRecyclerView;
-    private RecyclerView.Adapter mAdapter;
-    private RecyclerView.LayoutManager mLayoutManager;
     private DrawerLayout mDrawer;
-    private ProgressBar mSpinner;
-    private List<Submission> mSubs = new ArrayList<>();
-    private List<Subreddit> mSubreddits = new ArrayList<>();
-    private Subreddit currentSubreddit;
-    private boolean firstSubmission = true;
+    private List<Subreddit> mSubreddits;
+    private ActorRef fragmentRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ((ReddingApp)getApplicationContext()).getRedditComponent().inject(this);
-
-        mRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.refreshLayout);
-        mSpinner = (ProgressBar) findViewById(R.id.spinner);
-        mRecyclerView = (RecyclerView) findViewById(R.id.submissions_list);
-        assert mRecyclerView != null;
-        mLayoutManager = new LinearLayoutManager(this);
-        mRecyclerView.setLayoutManager(mLayoutManager);
-
-        mAdapter = new SubmissionsAdapter(this, getSelf(), getActorContext(), mSubs);
-        mRecyclerView.setAdapter(mAdapter);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -95,21 +71,16 @@ public class MainActivity extends AppCompatActivityAsActor
         mNavigationView.setNavigationItemSelectedListener(this);
         mNavigationView.getMenu().clear();
 
-        mRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
-            @Override
-            public void onRefresh() {
-                if (currentSubreddit == null)
-                    getHome();
-                else
-                    getSubreddit(currentSubreddit);
-            }
-        });
-
-        showSpinner();
+        SubredditFragment fragment = new SubredditFragment();
+        fragmentRef = getActorContext().actorOf(Props.create(fragment));
+        getSupportFragmentManager()
+                .beginTransaction()
+                .add(R.id.fragment_container, fragment)
+                .commit();
 
         if (!hasAuth()) startActivity(new Intent(this, LoginActivity.class));
 
-        getHome(true);
+        getHome();
         getUserSubreddits();
         getUser();
     }
@@ -120,8 +91,8 @@ public class MainActivity extends AppCompatActivityAsActor
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
         } else {
-            if (currentSubreddit != null)
-                getHome(true);
+            if (!getTitle().equals("Redding"))
+                getHome();
             else
                 super.onBackPressed();
         }
@@ -156,7 +127,7 @@ public class MainActivity extends AppCompatActivityAsActor
         int id = item.getItemId();
 
         Subreddit subreddit = mSubreddits.get(id);
-        getSubreddit(subreddit, true);
+        getSubreddit(subreddit);
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
@@ -177,27 +148,7 @@ public class MainActivity extends AppCompatActivityAsActor
 
     @Override
     public void onReceive(Object o) throws Exception {
-        if (o instanceof SubredditEvent) {
-            mSpinner.setVisibility(View.GONE);
-            mRecyclerView.setVisibility(View.VISIBLE);
-            mRefreshLayout.setRefreshing(false);
-
-            List<Submission> subreddit = ((SubredditEvent) o).getSubreddit();
-            mSubs.addAll(subreddit);
-            mAdapter.notifyDataSetChanged();
-
-        } else if (o instanceof Submission) {
-            if (firstSubmission) {
-                mRefreshLayout.setRefreshing(false);
-                mSpinner.setVisibility(View.GONE);
-                mRecyclerView.setVisibility(View.VISIBLE);
-                firstSubmission = false;
-            }
-
-            mSubs.add((Submission) o);
-            mAdapter.notifyDataSetChanged();
-
-        } else if (o instanceof UserSubredditsEvent) {
+        if (o instanceof UserSubredditsEvent) {
             onUserSubredditsEvent((UserSubredditsEvent) o);
 
         } else if (o instanceof LoggedInAccount) {
@@ -225,11 +176,11 @@ public class MainActivity extends AppCompatActivityAsActor
     }
 
     private void getHome() {
-        getHome(false);
+        fragmentRef.tell(new GetSubredditCmd(), getSelf());
     }
 
-    private void getHome(boolean showSpinner) {
-        getSubreddit(null, showSpinner);
+    private void getSubreddit(Subreddit subreddit) {
+        fragmentRef.tell(new GetSubredditCmd(subreddit), getSelf());
     }
 
     private void getUserSubreddits() {
@@ -238,34 +189,6 @@ public class MainActivity extends AppCompatActivityAsActor
 
     private void getUser() {
         redditActor.tell(new GetUserCmd(), getSelf());
-    }
-
-    private void getSubreddit(Subreddit subreddit) {
-        getSubreddit(subreddit, false);
-    }
-
-    private void getSubreddit(Subreddit subreddit, boolean showSpinner) {
-        firstSubmission = true;
-        currentSubreddit = subreddit;
-        mSubs.clear();
-
-        if (showSpinner) {
-            showSpinner();
-        }
-        if (subreddit != null) {
-            setTitle(subreddit.getTitle());
-            redditActor.tell(new GetSubredditCmd(subreddit.getDisplayName()), getSelf());
-
-        } else {
-            setTitle("Redding");
-            redditActor.tell(new GetSubredditCmd(), getSelf());
-        }
-
-    }
-
-    private void showSpinner() {
-        mSpinner.setVisibility(View.VISIBLE);
-        mRecyclerView.setVisibility(View.GONE);
     }
 
     private boolean hasAuth() {
